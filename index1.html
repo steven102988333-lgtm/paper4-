@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4号機巻取日報</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --primary-color: #1a365d;
+    --primary-light: #2b6cb0;
+    --bg-color: #f0f4f8;
+    --card-bg: #ffffff;
+    --border-color: #000000;
+    --header-bg: #edf2f7;
+    --text-color: #000000;
+  }
+
+  * {
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Meiryo", sans-serif;
+  }
+
+  body {
+    margin: 0;
+    padding: 8px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-size: 11px;
+  }
+
+  .header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--primary-color);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  .header-bar h1 {
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 6px;
+  }
+
+  button {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: bold;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    color: white;
+  }
+
+  .btn-save { background-color: #319795; }
+  .btn-export { background-color: #38a169; }
+  .btn-import { background-color: #3182ce; }
+  .btn-print { background-color: #805ad5; }
+  .btn-clear { background-color: #e53e3e; }
+  .btn-lock { background-color: #4a5568; }
+  .btn-lock.locked { background-color: #dd6b20; }
+
+  /* 橫向大三欄佈局 (完整複製紙本結構) */
+  .grid-container {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 4px;
+    padding: 6px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    border: 1px solid #cbd5e0;
+    margin-bottom: 8px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-light);
+    padding-bottom: 2px;
+    margin-bottom: 6px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+
+  th, td {
+    border: 1px solid var(--border-color);
+    padding: 2px 3px;
+    text-align: center;
+  }
+
+  th {
+    background-color: var(--header-bg);
+    font-weight: bold;
+  }
+
+  input, textarea {
+    width: 100%;
+    border: none;
+    padding: 1px 2px;
+    font-size: 10px;
+    text-align: center;
+    background: transparent;
+    box-sizing: border-box;
+  }
+
+  input:focus, textarea:focus {
+    background-color: #ebf8ff;
+    outline: none;
+  }
+
+  .stamp-box {
+    font-size: 14px;
+    font-weight: bold;
+    color: #c53030;
+    height: 35px;
+  }
+
+  body.is-locked input, body.is-locked textarea {
+    pointer-events: none;
+    background-color: #f7fafc;
+  }
+
+  @media print {
+    @page { size: A4 landscape; margin: 4mm; }
+    body { background: white; padding: 0; font-size: 9px; }
+    .header-bar button, .header-bar input[type="file"] { display: none !important; }
+    .header-bar { background: none; color: black; padding: 0; margin-bottom: 4px; border-bottom: 2px solid black; }
+    .header-bar h1 { font-size: 16px; color: black; }
+    .grid-container { grid-template-columns: 1.1fr 1fr 1fr; gap: 4px; }
+    .card { box-shadow: none; border: 1px solid #000; padding: 4px; margin-bottom: 4px; }
+    th, td { border-color: #000; padding: 1px 2px; }
+    th { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header-bar">
+  <h1>4号機巻取日報 (全項目完全版)</h1>
+  <div class="btn-group">
+    <button class="btn-save" onclick="saveData()">保存</button>
+    <button class="btn-export" onclick="exportExcel()">Excel出力</button>
+    <input type="file" id="fileInput" accept=".json" style="display:none" onchange="importJSON(event)">
+    <button class="btn-import" onclick="document.getElementById('fileInput').click()">JSON読込</button>
+    <button class="btn-print" onclick="window.print()">印刷</button>
+    <button class="btn-lock" id="lockBtn" onclick="toggleLock()">保護: OFF</button>
+    <button class="btn-clear" onclick="clearData()">クリア</button>
+  </div>
+</div>
+
+<div class="grid-container">
+
+  <!-- ================= 1. 左欄：1~15 卷取紀錄 (完全還原原圖左半部) ================= -->
+  <div>
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span style="font-weight: bold; font-size: 13px;">4号機巻取日報</span>
+        <span>日付：<input type="date" id="reportDate" style="width: 110px; display: inline-block;"></span>
+      </div>
+      
+      <!-- 檢印簽核區 -->
+      <table style="margin-bottom: 6px;">
+        <tr>
+          <th style="width: 15%;">検印</th>
+          <th>職長</th><th>早番</th><th>遅番</th><th>夜番</th>
+        </tr>
+        <tr>
+          <td style="background: #f7fafc;">印</td>
+          <td><input type="text" class="stamp-box" id="stamp1"></td>
+          <td><input type="text" class="stamp-box" id="stamp2"></td>
+          <td><input type="text" class="stamp-box" id="stamp3"></td>
+          <td><input type="text" class="stamp-box" id="stamp4"></td>
+        </tr>
+      </table>
+
+      <!-- 1~15 卷取紀錄大表 -->
+      <table style="font-size: 9.5px;">
+        <thead>
+          <tr>
+            <th style="width: 20px;">No</th>
+            <th>品名</th>
+            <th style="width: 32px;">厚さ</th>
+            <th style="width: 35px;">幅(m)</th>
+            <th style="width: 45px;">LOT No</th>
+            <th style="width: 40px;">担当者</th>
+            <th style="width: 35px;">時刻</th>
+            <th style="width: 45px;">巻長(m)</th>
+          </tr>
+        </thead>
+        <tbody id="winderTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- 底部作業備註算式欄 -->
+    <div class="card">
+      <div class="card-title">作業メモ・計算式 (残本数・不良重量)</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 40px;">時間</th>
+            <th>内容 / 計算式メモ</th>
+            <th style="width: 55px;">不良重量(kg)</th>
+          </tr>
+        </thead>
+        <tbody id="memoTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ================= 2. 中欄：抄紙條件 1 (原圖右上半部) ================= -->
+  <div>
+    <div class="card">
+      <div class="card-title">工程条件 (1) - 抄速・壓力・真空</div>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th style="width: 45px;">単位</th>
+            <th style="width: 40px;">早番</th>
+            <th style="width: 40px;">遅番</th>
+            <th style="width: 40px;">夜番</th>
+          </tr>
+        </thead>
+        <tbody id="process1TableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ================= 3. 右欄：抄紙條件 2 + 品質點檢 (原圖右下與最下) ================= -->
+  <div>
+    <div class="card">
+      <div class="card-title">工程条件 (2) - 脱水・Dryer・温度</div>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th style="width: 45px;">単位</th>
+            <th style="width: 40px;">早番</th>
+            <th style="width: 40px;">遅番</th>
+            <th style="width: 40px;">夜番</th>
+          </tr>
+        </thead>
+        <tbody id="process2TableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">点検項目・品質管理・LNG</div>
+      <table>
+        <thead>
+          <tr>
+            <th>項目</th>
+            <th style="width: 50px;">単位/状態</th>
+            <th style="width: 40px;">早番</th>
+            <th style="width: 40px;">遅番</th>
+            <th style="width: 40px;">夜番</th>
+          </tr>
+        </thead>
+        <tbody id="inspectionTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// 1. 工程條件 (1) 完全對應照片右上表
+const process1Items = [
+  { name: '抄速', unit: 'm/min' },
+  { name: '品名', unit: '—' },
+  { name: '厚さ', unit: 'mm' },
+  { name: '幅', unit: 'mm' },
+  { name: 'LOT No', unit: '—' },
+  { name: '白水ポンプ流量', unit: 'kL/min' },
+  { name: 'チェスト攪拌機', unit: '%' },
+  { name: 'チェスト攪拌機', unit: 'Hz/min' },
+  { name: '超低圧 hydrocyclone 入口圧力', unit: 'MPa' },
+  { name: '1次 hydrocyclone 入口圧力', unit: 'MPa' },
+  { name: '1次 hydrocyclone 出口圧力', unit: 'MPa' },
+  { name: '圧力', unit: 'MPa' },
+  { name: '吹込口', unit: 'MPa' },
+  { name: '吸込口', unit: 'MPa' },
+  { name: '1次 hydrocyclone 吐出', unit: 'MPa' },
+  { name: '真空 Pump 電流', unit: 'A' },
+  { name: '真空 Pump 吐出', unit: 'MPa' },
+  { name: '白水タンク Level', unit: 'mm' },
+  { name: '消泡剤', unit: 'cc/min' }
+];
+
+// 2. 工程條件 (2) 完全對應照片右中表
+const process2Items = [
+  { name: '脱水静圧 No.1', unit: 'mmAq' },
+  { name: '脱水静圧 No.2', unit: 'mmAq' },
+  { name: '脱水静圧 No.3', unit: 'mmAq' },
+  { name: '脱水静圧 No.4', unit: 'mmAq' },
+  { name: '脱水静圧 No.5', unit: 'mmAq' },
+  { name: 'トップ網圧', unit: 'kPa' },
+  { name: 'シートホーム水圧', unit: 'mm' },
+  { name: 'Dryer 1 圧力', unit: 'mm' },
+  { name: 'Dryer 2 圧力', unit: 'MPa' },
+  { name: '脱水盤水圧 No.1/No.2', unit: 'A' },
+  { name: 'BD 乾量', unit: '℃' },
+  { name: 'BD 乾圧', unit: 'kPa' },
+  { name: 'BD 乾底面温度', unit: 'kPa' },
+  { name: 'SD ドラム圧', unit: '%' },
+  { name: 'SD フィルタ張力', unit: 'kPa' },
+  { name: '坪量線番号プレート有無', unit: '有無' }
+];
+
+// 3. 品質點檢與 LNG (完全對應照片右最下表)
+const inspectionItems = [
+  { name: 'トップ網点検', unit: '点検時間' },
+  { name: 'エプロン詰まり点検', unit: '有無' },
+  { name: '高圧シャワー詰まり点検', unit: '有無' },
+  { name: '巻取タッチ圧設定値', unit: 'MPa' },
+  { name: '没水性水分測定', unit: 'ダイヤル値' },
+  { name: '巻取テンション圧力', unit: 'MPa' },
+  { name: '計量器管理 No.', unit: '記入' },
+  { name: '計量器点検極板', unit: '記入' },
+  { name: 'ゼロ点', unit: 'チェック' },
+  { name: '工具・備品', unit: 'チェック' },
+  { name: 'シートホームマグネットテンション', unit: 'mL/min' },
+  { name: 'LNG 使用量', unit: '時間' }
+];
+
+let isLocked = false;
+
+window.addEventListener('DOMContentLoaded', () => {
+  renderWinderTable();
+  renderMemoTable();
+  renderTable('process1TableBody', process1Items, 'p1');
+  renderTable('process2TableBody', process2Items, 'p2');
+  renderTable('inspectionTableBody', inspectionItems, 'insp');
+
+  document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
+  loadData();
+});
+
+function renderWinderTable() {
+  const tbody = document.getElementById('winderTableBody');
+  let html = '';
+  for (let i = 1; i <= 15; i++) {
+    html += `
+      <tr>
+        <td style="font-weight: bold; background: var(--header-bg);">${i}</td>
+        <td><input type="text" id="w_name_${i}"></td>
+        <td><input type="text" id="w_thick_${i}"></td>
+        <td><input type="text" id="w_width_${i}"></td>
+        <td><input type="text" id="w_lot_${i}"></td>
+        <td><input type="text" id="w_user_${i}"></td>
+        <td><input type="text" id="w_time_${i}"></td>
+        <td><input type="text" id="w_len_${i}"></td>
+      </tr>
+    `;
+  }
+  tbody.innerHTML = html;
+}
+
+function renderMemoTable() {
+  const tbody = document.getElementById('memoTableBody');
+  let html = '';
+  for (let i = 1; i <= 5; i++) {
+    html += `
+      <tr>
+        <td><input type="text" id="m_time_${i}" placeholder="00:00"></td>
+        <td><input type="text" id="m_text_${i}" style="text-align: left;"></td>
+        <td><input type="text" id="m_waste_${i}"></td>
+      </tr>
+    `;
+  }
+  tbody.innerHTML = html;
+}
+
+function renderTable(tbodyId, items, prefix) {
+  const tbody = document.getElementById(tbodyId);
+  tbody.innerHTML = items.map((item, idx) => `
+    <tr>
+      <td style="text-align: left;">${item.name}</td>
+      <td style="color: #4a5568;">${item.unit}</td>
+      <td><input type="text" id="${prefix}_e_${idx}"></td>
+      <td><input type="text" id="${prefix}_l_${idx}"></td>
+      <td><input type="text" id="${prefix}_n_${idx}"></td>
+    </tr>
+  `).join('');
+}
+
+function toggleLock() {
+  isLocked = !isLocked;
+  const btn = document.getElementById('lockBtn');
+  if (isLocked) {
+    document.body.classList.add('is-locked');
+    btn.textContent = '保護: ON';
+    btn.classList.add('locked');
+  } else {
+    document.body.classList.remove('is-locked');
+    btn.textContent = '保護: OFF';
+    btn.classList.remove('locked');
+  }
+}
+
+function collectAllData() {
+  const data = {
+    isLocked: isLocked,
+    reportDate: document.getElementById('reportDate').value,
+    stamps: [
+      document.getElementById('stamp1').value,
+      document.getElementById('stamp2').value,
+      document.getElementById('stamp3').value,
+      document.getElementById('stamp4').value
+    ],
+    winder: [],
+    memos: [],
+    p1: [],
+    p2: [],
+    insp: []
+  };
+
+  for (let i = 1; i <= 15; i++) {
+    data.winder.push({
+      name: document.getElementById(`w_name_${i}`).value,
+      thick: document.getElementById(`w_thick_${i}`).value,
+      width: document.getElementById(`w_width_${i}`).value,
+      lot: document.getElementById(`w_lot_${i}`).value,
+      user: document.getElementById(`w_user_${i}`).value,
+      time: document.getElementById(`w_time_${i}`).value,
+      len: document.getElementById(`w_len_${i}`).value
+    });
+  }
+
+  for (let i = 1; i <= 5; i++) {
+    data.memos.push({
+      time: document.getElementById(`m_time_${i}`).value,
+      text: document.getElementById(`m_text_${i}`).value,
+      waste: document.getElementById(`m_waste_${i}`).value
+    });
+  }
+
+  const collectSection = (items, prefix) => {
+    return items.map((_, idx) => ({
+      e: document.getElementById(`${prefix}_e_${idx}`).value,
+      l: document.getElementById(`${prefix}_l_${idx}`).value,
+      n: document.getElementById(`${prefix}_n_${idx}`).value
+    }));
+  };
+
+  data.p1 = collectSection(process1Items, 'p1');
+  data.p2 = collectSection(process2Items, 'p2');
+  data.insp = collectSection(inspectionItems, 'insp');
+
+  return data;
+}
+
+function applyData(data) {
+  if (!data) return;
+  if (data.reportDate) document.getElementById('reportDate').value = data.reportDate;
+
+  if (data.stamps) {
+    document.getElementById('stamp1').value = data.stamps[0] || '';
+    document.getElementById('stamp2').value = data.stamps[1] || '';
+    document.getElementById('stamp3').value = data.stamps[2] || '';
+    document.getElementById('stamp4').value = data.stamps[3] || '';
+  }
+
+  if (data.winder) {
+    data.winder.forEach((item, idx) => {
+      const i = idx + 1;
+      if (document.getElementById(`w_name_${i}`)) {
+        document.getElementById(`w_name_${i}`).value = item.name || '';
+        document.getElementById(`w_thick_${i}`).value = item.thick || '';
+        document.getElementById(`w_width_${i}`).value = item.width || '';
+        document.getElementById(`w_lot_${i}`).value = item.lot || '';
+        document.getElementById(`w_user_${i}`).value = item.user || '';
+        document.getElementById(`w_time_${i}`).value = item.time || '';
+        document.getElementById(`w_len_${i}`).value = item.len || '';
+      }
+    });
+  }
+
+  if (data.memos) {
+    data.memos.forEach((item, idx) => {
+      const i = idx + 1;
+      if (document.getElementById(`m_time_${i}`)) {
+        document.getElementById(`m_time_${i}`).value = item.time || '';
+        document.getElementById(`m_text_${i}`).value = item.text || '';
+        document.getElementById(`m_waste_${i}`).value = item.waste || '';
+      }
+    });
+  }
+
+  const applySection = (list, prefix) => {
+    if (list) {
+      list.forEach((item, idx) => {
+        if (document.getElementById(`${prefix}_e_${idx}`)) {
+          document.getElementById(`${prefix}_e_${idx}`).value = item.e || '';
+          document.getElementById(`${prefix}_l_${idx}`).value = item.l || '';
+          document.getElementById(`${prefix}_n_${idx}`).value = item.n || '';
+        }
+      });
+    }
+  };
+
+  applySection(data.p1, 'p1');
+  applySection(data.p2, 'p2');
+  applySection(data.insp, 'insp');
+
+  if (data.isLocked !== isLocked) toggleLock();
+}
+
+async function saveData() {
+  const data = collectAllData();
+  localStorage.setItem('paperMachineFullDailyReport', JSON.stringify(data));
+  const dateStr = (data.reportDate || '未設定').replace(/-/g, '');
+  const fileName = `4号機巻取日報_${dateStr}.json`;
+
+  try {
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: 'JSON File', accept: { 'application/json': ['.json'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(data, null, 2));
+      await writable.close();
+    } else {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      a.click();
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') alert('保存失敗: ' + err.message);
+  }
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      applyData(JSON.parse(e.target.result));
+      alert('データを読み込みました');
+    } catch (err) {
+      alert('正しいJSONではありません');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function loadData() {
+  const raw = localStorage.getItem('paperMachineFullDailyReport');
+  if (raw) {
+    try { applyData(JSON.parse(raw)); } catch (e) {}
+  }
+}
+
+function clearData() {
+  if (confirm('すべての入力をクリアしますか？')) {
+    localStorage.removeItem('paperMachineFullDailyReport');
+    location.reload();
+  }
+}
+
+function exportExcel() {
+  const data = collectAllData();
+  const wb = XLSX.utils.book_new();
+
+  const winderRows = [
+    ['抄紙4号機 巻取日報 (全項目)'],
+    ['日付', data.reportDate],
+    [],
+    ['No', '品名', '厚さ', '幅(m)', 'LOT No', '担当者', '時刻', '巻長(m)']
+  ];
+
+  data.winder.forEach((item, idx) => {
+    winderRows.push([idx + 1, item.name, item.thick, item.width, item.lot, item.user, item.time, item.len]);
+  });
+
+  const wsWinder = XLSX.utils.aoa_to_sheet(winderRows);
+  XLSX.utils.book_append_sheet(wb, wsWinder, '巻取記録');
+
+  const dateStr = (data.reportDate || '未設定').replace(/-/g, '');
+  XLSX.writeFile(wb, `4号機巻取日報_${dateStr}.xlsx`);
+}
+</script>
+</body>
+</html>
