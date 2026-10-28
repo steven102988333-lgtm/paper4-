@@ -26,7 +26,7 @@
     padding: 8px;
     background-color: var(--bg-color);
     color: var(--text-color);
-    font-size: 11px;
+    font-size: 12px; /* 字體稍微放大 */
   }
 
   .header-bar {
@@ -51,7 +51,7 @@
   }
 
   button {
-    padding: 4px 10px;
+    padding: 6px 12px;
     font-size: 12px;
     font-weight: bold;
     border: none;
@@ -68,10 +68,10 @@
   .btn-lock { background-color: #4a5568; }
   .btn-lock.locked { background-color: #dd6b20; }
 
-  /* 橫向大三欄佈局 (完整複製紙本結構) */
+  /* 橫向大三欄佈局 */
   .grid-container {
     display: grid;
-    grid-template-columns: 1.1fr 1fr 1fr;
+    grid-template-columns: 1.2fr 1fr 1fr;
     gap: 8px;
     align-items: start;
   }
@@ -86,7 +86,7 @@
   }
 
   .card-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: bold;
     color: var(--primary-color);
     border-bottom: 2px solid var(--primary-light);
@@ -97,12 +97,12 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 10px;
+    font-size: 11px; /* 欄位內部字體放大 */
   }
 
   th, td {
     border: 1px solid var(--border-color);
-    padding: 2px 3px;
+    padding: 3px 4px;
     text-align: center;
   }
 
@@ -114,8 +114,8 @@
   input, textarea {
     width: 100%;
     border: none;
-    padding: 1px 2px;
-    font-size: 10px;
+    padding: 2px;
+    font-size: 11px;
     text-align: center;
     background: transparent;
     box-sizing: border-box;
@@ -144,7 +144,7 @@
     .header-bar button, .header-bar input[type="file"] { display: none !important; }
     .header-bar { background: none; color: black; padding: 0; margin-bottom: 4px; border-bottom: 2px solid black; }
     .header-bar h1 { font-size: 16px; color: black; }
-    .grid-container { grid-template-columns: 1.1fr 1fr 1fr; gap: 4px; }
+    .grid-container { grid-template-columns: 1.2fr 1fr 1fr; gap: 4px; }
     .card { box-shadow: none; border: 1px solid #000; padding: 4px; margin-bottom: 4px; }
     th, td { border-color: #000; padding: 1px 2px; }
     th { background-color: #f0f0f0 !important; -webkit-print-color-adjust: exact; }
@@ -154,7 +154,7 @@
 <body>
 
 <div class="header-bar">
-  <h1>4号機巻取日報 (全項目完全版)</h1>
+  <h1>4号機巻取日報 (30格擴充版)</h1>
   <div class="btn-group">
     <button class="btn-save" onclick="saveData()">保存</button>
     <button class="btn-export" onclick="exportExcel()">Excel出力</button>
@@ -168,12 +168,12 @@
 
 <div class="grid-container">
 
-  <!-- ================= 1. 左欄：1~15 卷取紀錄 (完全還原原圖左半部) ================= -->
+  <!-- ================= 1. 左欄：1~30 卷取紀錄 ================= -->
   <div>
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
         <span style="font-weight: bold; font-size: 13px;">4号機巻取日報</span>
-        <span>日付：<input type="date" id="reportDate" style="width: 110px; display: inline-block;"></span>
+        <span>日付：<input type="date" id="reportDate" style="width: 115px; display: inline-block;"></span>
       </div>
       
       <!-- 檢印簽核區 -->
@@ -191,18 +191,18 @@
         </tr>
       </table>
 
-      <!-- 1~15 卷取紀錄大表 -->
-      <table style="font-size: 9.5px;">
+      <!-- 1~30 卷取紀錄大表 -->
+      <table>
         <thead>
           <tr>
-            <th style="width: 20px;">No</th>
+            <th style="width: 22px;">No</th>
             <th>品名</th>
-            <th style="width: 32px;">厚さ</th>
-            <th style="width: 35px;">幅(m)</th>
-            <th style="width: 45px;">LOT No</th>
-            <th style="width: 40px;">担当者</th>
-            <th style="width: 35px;">時刻</th>
-            <th style="width: 45px;">巻長(m)</th>
+            <th style="width: 35px;">厚さ</th>
+            <th style="width: 38px;">幅(m)</th>
+            <th style="width: 50px;">LOT No</th>
+            <th style="width: 45px;">担当者</th>
+            <th style="width: 38px;">時刻</th>
+            <th style="width: 50px;">巻長(m)</th>
           </tr>
         </thead>
         <tbody id="winderTableBody"></tbody>
@@ -215,9 +215,9 @@
       <table>
         <thead>
           <tr>
-            <th style="width: 40px;">時間</th>
+            <th style="width: 45px;">時間</th>
             <th>内容 / 計算式メモ</th>
-            <th style="width: 55px;">不良重量(kg)</th>
+            <th style="width: 60px;">不良重量(kg)</th>
           </tr>
         </thead>
         <tbody id="memoTableBody"></tbody>
@@ -225,7 +225,7 @@
     </div>
   </div>
 
-  <!-- ================= 2. 中欄：抄紙條件 1 (原圖右上半部) ================= -->
+  <!-- ================= 2. 中欄：工程條件 (1) ================= -->
   <div>
     <div class="card">
       <div class="card-title">工程条件 (1) - 抄速・壓力・真空</div>
@@ -233,10 +233,10 @@
         <thead>
           <tr>
             <th>項目</th>
-            <th style="width: 45px;">単位</th>
-            <th style="width: 40px;">早番</th>
-            <th style="width: 40px;">遅番</th>
-            <th style="width: 40px;">夜番</th>
+            <th style="width: 48px;">単位</th>
+            <th style="width: 42px;">早番</th>
+            <th style="width: 42px;">遅番</th>
+            <th style="width: 42px;">夜番</th>
           </tr>
         </thead>
         <tbody id="process1TableBody"></tbody>
@@ -244,7 +244,7 @@
     </div>
   </div>
 
-  <!-- ================= 3. 右欄：抄紙條件 2 + 品質點檢 (原圖右下與最下) ================= -->
+  <!-- ================= 3. 右欄：工程條件 (2) + 品質點檢 ================= -->
   <div>
     <div class="card">
       <div class="card-title">工程条件 (2) - 脱水・Dryer・温度</div>
@@ -252,10 +252,10 @@
         <thead>
           <tr>
             <th>項目</th>
-            <th style="width: 45px;">単位</th>
-            <th style="width: 40px;">早番</th>
-            <th style="width: 40px;">遅番</th>
-            <th style="width: 40px;">夜番</th>
+            <th style="width: 48px;">単位</th>
+            <th style="width: 42px;">早番</th>
+            <th style="width: 42px;">遅番</th>
+            <th style="width: 42px;">夜番</th>
           </tr>
         </thead>
         <tbody id="process2TableBody"></tbody>
@@ -268,10 +268,10 @@
         <thead>
           <tr>
             <th>項目</th>
-            <th style="width: 50px;">単位/状態</th>
-            <th style="width: 40px;">早番</th>
-            <th style="width: 40px;">遅番</th>
-            <th style="width: 40px;">夜番</th>
+            <th style="width: 55px;">単位/状態</th>
+            <th style="width: 42px;">早番</th>
+            <th style="width: 42px;">遅番</th>
+            <th style="width: 42px;">夜番</th>
           </tr>
         </thead>
         <tbody id="inspectionTableBody"></tbody>
@@ -282,7 +282,6 @@
 </div>
 
 <script>
-// 1. 工程條件 (1) 完全對應照片右上表
 const process1Items = [
   { name: '抄速', unit: 'm/min' },
   { name: '品名', unit: '—' },
@@ -305,7 +304,6 @@ const process1Items = [
   { name: '消泡剤', unit: 'cc/min' }
 ];
 
-// 2. 工程條件 (2) 完全對應照片右中表
 const process2Items = [
   { name: '脱水静圧 No.1', unit: 'mmAq' },
   { name: '脱水静圧 No.2', unit: 'mmAq' },
@@ -325,7 +323,6 @@ const process2Items = [
   { name: '坪量線番号プレート有無', unit: '有無' }
 ];
 
-// 3. 品質點檢與 LNG (完全對應照片右最下表)
 const inspectionItems = [
   { name: 'トップ網点検', unit: '点検時間' },
   { name: 'エプロン詰まり点検', unit: '有無' },
@@ -357,7 +354,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function renderWinderTable() {
   const tbody = document.getElementById('winderTableBody');
   let html = '';
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 30; i++) { // 改為 30 格
     html += `
       <tr>
         <td style="font-weight: bold; background: var(--header-bg);">${i}</td>
@@ -433,7 +430,7 @@ function collectAllData() {
     insp: []
   };
 
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 30; i++) {
     data.winder.push({
       name: document.getElementById(`w_name_${i}`).value,
       thick: document.getElementById(`w_thick_${i}`).value,
@@ -526,7 +523,7 @@ function applyData(data) {
 
 async function saveData() {
   const data = collectAllData();
-  localStorage.setItem('paperMachineFullDailyReport', JSON.stringify(data));
+  localStorage.setItem('paperMachineFullDailyReport30', JSON.stringify(data));
   const dateStr = (data.reportDate || '未設定').replace(/-/g, '');
   const fileName = `4号機巻取日報_${dateStr}.json`;
 
@@ -567,7 +564,7 @@ function importJSON(event) {
 }
 
 function loadData() {
-  const raw = localStorage.getItem('paperMachineFullDailyReport');
+  const raw = localStorage.getItem('paperMachineFullDailyReport30');
   if (raw) {
     try { applyData(JSON.parse(raw)); } catch (e) {}
   }
@@ -575,7 +572,7 @@ function loadData() {
 
 function clearData() {
   if (confirm('すべての入力をクリアしますか？')) {
-    localStorage.removeItem('paperMachineFullDailyReport');
+    localStorage.removeItem('paperMachineFullDailyReport30');
     location.reload();
   }
 }
@@ -585,7 +582,7 @@ function exportExcel() {
   const wb = XLSX.utils.book_new();
 
   const winderRows = [
-    ['抄紙4号機 巻取日報 (全項目)'],
+    ['抄紙4号機 巻取日報 (30格版)'],
     ['日付', data.reportDate],
     [],
     ['No', '品名', '厚さ', '幅(m)', 'LOT No', '担当者', '時刻', '巻長(m)']
