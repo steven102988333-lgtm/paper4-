@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>4号機巻取日報 (AI拍照辨識版)</title>
+<title>4号機巻取日報</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 <style>
   :root {
     --primary-color: #1a365d;
@@ -66,13 +67,12 @@
   .btn-save { background-color: #319795; }
   .btn-export { background-color: #38a169; }
   .btn-import { background-color: #3182ce; }
-  .btn-ai { background-color: #d69e2e; } /* AI 拍照辨識按鈕顏色 */
+  .btn-ai { background-color: #d69e2e; }
   .btn-print { background-color: #805ad5; }
   .btn-clear { background-color: #e53e3e; }
   .btn-lock { background-color: #4a5568; }
   .btn-lock.locked { background-color: #dd6b20; }
 
-  /* 載入中遮罩樣式 */
   #loadingOverlay {
     display: none;
     position: fixed;
@@ -88,7 +88,6 @@
     gap: 10px;
   }
 
-  /* 橫向大三欄佈局 */
   .grid-container {
     display: grid;
     grid-template-columns: 1.2fr 1fr 1fr;
@@ -173,17 +172,16 @@
 </head>
 <body>
 
-<!-- AI 辨識載入中提示框 -->
 <div id="loadingOverlay">
-  <div>🤖 AI 正在辨識紙本表單照片，請稍候...</div>
-  <div style="font-size: 12px; font-weight: normal;">正在將文字與數值自動填入表格中</div>
+  <div>🔄 OCR文字認識を実行中...</div>
+  <div id="progressText" style="font-size: 12px; font-weight: normal;">準備中...</div>
 </div>
 
 <div class="header-bar">
-  <h1>4号機巻取日報 (AI拍照辨識版)</h1>
+  <h1>抄紙4号機 巻取日報</h1>
   <div class="btn-group">
-    <input type="file" id="aiCameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleImageUpload(event)">
-    <button class="btn-ai" onclick="document.getElementById('aiCameraInput').click()">📷 拍照/上傳辨識</button>
+    <input type="file" id="ocrCameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleFreeOCR(event)">
+    <button class="btn-ai" onclick="document.getElementById('ocrCameraInput').click()">📷 写真撮影/読込</button>
     <button class="btn-save" onclick="saveData()">保存</button>
     <button class="btn-export" onclick="exportExcel()">Excel出力</button>
     <input type="file" id="fileInput" accept=".json" style="display:none" onchange="importJSON(event)">
@@ -200,7 +198,7 @@
   <div>
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-        <span style="font-weight: bold; font-size: 13px;">4号機巻取日報</span>
+        <span style="font-weight: bold; font-size: 13px;">巻取記録 (1～30)</span>
         <span>日付：<input type="date" id="reportDate" style="width: 115px; display: inline-block;"></span>
       </div>
       
@@ -253,7 +251,7 @@
   <!-- ================= 2. 中欄：工程條件 (1) ================= -->
   <div>
     <div class="card">
-      <div class="card-title">工程条件 (1) - 抄速・壓力・真空</div>
+      <div class="card-title">工程条件 (1) - 抄速・圧力・真空</div>
       <table>
         <thead>
           <tr>
@@ -424,77 +422,38 @@ function renderTable(tbodyId, items, prefix) {
   `).join('');
 }
 
-// ================= AI 拍照辨識核心邏輯 =================
-async function handleImageUpload(event) {
+async function handleFreeOCR(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  // 檢查是否已設定 API Key
-  const apiKey = "YOUR_OPENAI_API_KEY"; // 請在此填入您的 OpenAI API Key
-  if (apiKey === "YOUR_OPENAI_API_KEY") {
-    alert("請先在程式碼中的 apiKey 欄位填入您的 OpenAI API Key，才能使用 AI 拍照辨識功能！");
-    return;
-  }
-
   const overlay = document.getElementById('loadingOverlay');
+  const progressText = document.getElementById('progressText');
   overlay.style.display = 'flex';
+  progressText.textContent = "OCRエンジンを読み込んでいます...";
 
   try {
-    // 將圖片轉為 Base64
-    const base64Image = await toBase64(file);
+    const worker = await Tesseract.createWorker('jpn');
+    progressText.textContent = "画像をスキャン中...";
+    const ret = await worker.recognize(file);
+    await worker.terminate();
 
-    // 呼叫 OpenAI Vision API 進行解析
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            s_t: "You are an AI that extracts data from paper industrial daily reports (4号機巻取日報) and returns strictly a JSON object matching the structure required.",
-            content: "請將這張「4号機巻取日報」紙本照片中的數據完整萃取出來，並回傳一個 JSON 格式，包含 reportDate (YYYY-MM-DD), stamps (陣列4個), winder (陣列最多30個物件，含 name, thick, width, lot, user, time, len), p1, p2, insp。只回傳 JSON 即可。"
-          },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "請解析這張日報表單照片。" },
-              { type: "image_url", image_url: { url: base64Image } }
-            ]
-          }
-        ],
-        response_format: { type: "json_object" }
-      })
-    });
-
-    const result = await response.json();
-    if (result.choices && result.choices[0]) {
-      const parsedData = JSON.parse(result.choices[0].message.content);
-      applyData(parsedData);
-      alert("AI 辨識與填入完成！請檢查欄位數據是否有誤。");
+    const text = ret.data.text;
+    if (text) {
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      if (lines.length > 0 && document.getElementById('w_name_1')) {
+        document.getElementById('w_name_1').value = lines[0].substring(0, 20);
+      }
+      alert("OCR読み込みが完了しました。第1行にテキストを反映しました。");
     } else {
-      throw new Error("API 回傳格式錯誤");
+      alert("テキストを検出できませんでした。画像の鮮明度をご確認ください。");
     }
   } catch (err) {
-    alert("AI 辨識失敗：" + err.message);
+    alert("OCRエラー: " + err.message);
   } finally {
     overlay.style.display = 'none';
-    event.target.value = ''; // 重設 file input
+    event.target.value = '';
   }
 }
-
-function toBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-  });
-}
-// ========================================================
 
 function toggleLock() {
   isLocked = !isLocked;
@@ -620,7 +579,7 @@ function applyData(data) {
 
 async function saveData() {
   const data = collectAllData();
-  localStorage.setItem('paperMachineAIReport30', JSON.stringify(data));
+  localStorage.setItem('paperMachineFreeOCRReport30', JSON.stringify(data));
   const dateStr = (data.reportDate || '未設定').replace(/-/g, '');
   const fileName = `4号機巻取日報_${dateStr}.json`;
 
@@ -641,7 +600,7 @@ async function saveData() {
       a.click();
     }
   } catch (err) {
-    if (err.name !== 'AbortError') alert('保存失敗: ' + err.message);
+    if (err.name !== 'AbortError') alert('保存に失敗しました: ' + err.message);
   }
 }
 
@@ -652,24 +611,24 @@ function importJSON(event) {
   reader.onload = function(e) {
     try {
       applyData(JSON.parse(e.target.result));
-      alert('データを読み込みました');
+      alert('データを正常に読み込みました。');
     } catch (err) {
-      alert('正しいJSONではありません');
+      alert('有効なJSONファイルではありません。');
     }
   };
   reader.readAsText(file);
 }
 
 function loadData() {
-  const raw = localStorage.getItem('paperMachineAIReport30');
+  const raw = localStorage.getItem('paperMachineFreeOCRReport30');
   if (raw) {
     try { applyData(JSON.parse(raw)); } catch (e) {}
   }
 }
 
 function clearData() {
-  if (confirm('すべての入力をクリアしますか？')) {
-    localStorage.removeItem('paperMachineAIReport30');
+  if (confirm('すべての入力データをクリアしますか？')) {
+    localStorage.removeItem('paperMachineFreeOCRReport30');
     location.reload();
   }
 }
@@ -679,7 +638,7 @@ function exportExcel() {
   const wb = XLSX.utils.book_new();
 
   const winderRows = [
-    ['抄紙4号機 巻取日報 (AI辨識版)'],
+    ['抄紙4号機 巻取日報'],
     ['日付', data.reportDate],
     [],
     ['No', '品名', '厚さ', '幅(m)', 'LOT No', '担当者', '時刻', '巻長(m)']
